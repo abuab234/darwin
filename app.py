@@ -5,13 +5,25 @@ import pickle
 # Konfigurasi Halaman (Modern UI)
 st.set_page_config(page_title="Deteksi Dini Alzheimer", layout="centered", page_icon="🧠")
 
-st.title("🧠 Deteksi Dini Alzheimer (DARWIN Dataset)")
-st.write("Aplikasi ini menggunakan Machine Learning (*Bagging Classifier*) untuk memprediksi potensi Alzheimer berdasarkan pola pergerakan tulisan tangan.")
+st.title("🧠 Deteksi Dini Alzheimer")
+st.caption("Berbasis Machine Learning menggunakan Dataset DARWIN")
+
+# --- BAGIAN 1: PENJELASAN APLIKASI & PENYAKIT ---
+with st.expander("📖 Informasi Singkat: Penyakit Alzheimer & DARWIN Dataset", expanded=True):
+    st.write("""
+    **Apa itu Penyakit Alzheimer?**
+    Alzheimer adalah penyakit degeneratif pada otak yang secara bertahap menghancurkan daya ingat dan kemampuan kognitif. Jauh sebelum gejala memori (pikun) terlihat parah, kerusakan saraf ini terlebih dahulu memengaruhi kemampuan motorik halus penderitanya, seperti koordinasi pergerakan tangan saat menulis.
+
+    **Apa itu DARWIN Dataset?**
+    DARWIN adalah kumpulan data hasil penelitian medis. Data ini merekam pergerakan tangan ratusan orang (sehat dan pasien Alzheimer) saat mereka menulis atau menggambar di atas *pen tablet* digital. 
+
+    **Tujuan Pembuatan Aplikasi Ini**
+    Aplikasi ini dirancang untuk melakukan *screening* atau deteksi dini Alzheimer secara cepat dan murah. Algoritma *Bagging Classifier* akan membaca 451 metrik pergerakan tangan Anda untuk mencari pola anomali yang mengindikasikan gejala awal Alzheimer, tanpa memerlukan pemindaian otak (MRI) yang mahal.
+    """)
 
 # Cache resource agar model tidak di-load ulang setiap kali ada interaksi UI
 @st.cache_resource
 def load_components():
-    # Pastikan nama file sesuai dengan yang ada di folder Anda
     with open('bagging_classifier_model.pkl', 'rb') as file:
         model = pickle.load(file)
     with open('scaler (1).pkl', 'rb') as file:
@@ -23,17 +35,28 @@ def load_components():
 # Coba memuat model
 try:
     model, scaler, le = load_components()
-    st.success("✅ Model, Scaler, dan Encoder berhasil dimuat ke sistem!")
+    st.success("✅ Model Machine Learning, Scaler, dan Encoder siap digunakan!")
 except Exception as e:
     st.error(f"⚠️ Gagal memuat file model. Pastikan file .pkl berada di folder yang sama dengan app.py. Error: {e}")
     st.stop()
 
 st.markdown("---")
 st.subheader("Uji Data Pasien")
-st.info("💡 Karena terdapat 451 fitur parameter tulisan tangan, silakan unggah file CSV berisi metrik data pasien (tanpa kolom label/target).")
+
+# --- BAGIAN 2: PENJELASAN CSV & LINK GOOGLE DRIVE ---
+st.info("""
+**Kenapa harus format .CSV?**
+Model Kecerdasan Buatan (AI) ini tidak memproses gambar tulisan tangan (seperti JPG/PNG), melainkan memproses data metrik fisik. File `.csv` (*Comma Separated Values*) ini berisi 451 kolom angka yang mencatat kecepatan goresan, tekanan pena, dan waktu jeda secara presisi dari sensor perangkat digital.
+""")
+
+st.warning("""
+**Belum memiliki dataset?**
+Jika Anda tidak memiliki data sensor pasien namun ingin mencoba fungsionalitas aplikasi ini, Anda dapat mengunduh beberapa sampel data `.csv` yang telah kami sediakan melalui tautan berikut:
+👉 **[Download Contoh Dataset (Google Drive)](https://drive.google.com/drive/u/0/folders/1JAaMTNAmPYrP7PNkmvt0cwAatb5NCyAJ)**
+""")
 
 # Fitur Upload File
-uploaded_file = st.file_uploader("Unggah file CSV metrik tulisan tangan", type=["csv"])
+uploaded_file = st.file_uploader("Unggah file CSV metrik tulisan tangan pasien", type=["csv"])
 
 if uploaded_file is not None:
     # Membaca data CSV yang diunggah
