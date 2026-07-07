@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import pickle
 
 # Konfigurasi Halaman (Modern UI)
@@ -35,58 +36,86 @@ def load_components():
 # Coba memuat model
 try:
     model, scaler, le = load_components()
-    st.success("✅ Model Machine Learning, Scaler, dan Encoder siap digunakan!")
 except Exception as e:
     st.error(f"⚠️ Gagal memuat file model. Pastikan file .pkl berada di folder yang sama dengan app.py. Error: {e}")
     st.stop()
 
 st.markdown("---")
-st.subheader("Uji Data Pasien")
 
-# --- BAGIAN 2: PENJELASAN CSV & LINK GOOGLE DRIVE ---
-st.info("""
-**Kenapa harus format .CSV?**
-Model Kecerdasan Buatan (AI) ini tidak memproses gambar tulisan tangan (seperti JPG/PNG), melainkan memproses data metrik fisik. File `.csv` (*Comma Separated Values*) ini berisi 451 kolom angka yang mencatat kecepatan goresan, tekanan pena, dan waktu jeda secara presisi dari sensor perangkat digital.
-""")
+# --- MEMBUAT SISTEM TABS UNTUK NAVIGASI ---
+tab1, tab2 = st.tabs(["📁 Upload File CSV", "🎛️ Input Parameter Manual (Simulasi)"])
 
-st.warning("""
-**Belum memiliki dataset?**
-Jika Anda tidak memiliki data sensor pasien namun ingin mencoba fungsionalitas aplikasi ini, Anda dapat mengunduh beberapa sampel data `.csv` yang telah kami sediakan melalui tautan berikut:
-👉 **[Download Contoh Dataset (Google Drive)](https://drive.google.com/drive/u/0/folders/1JAaMTNAmPYrP7PNkmvt0cwAatb5NCyAJ)**
-""")
+# ==========================================
+# TAB 1: UPLOAD FILE CSV
+# ==========================================
+with tab1:
+    st.subheader("Uji Data Menggunakan File")
+    st.info("""
+    **Kenapa harus format .CSV?**
+    Model Kecerdasan Buatan (AI) ini tidak memproses gambar tulisan tangan (seperti JPG/PNG), melainkan memproses data metrik fisik. File `.csv` (*Comma Separated Values*) ini berisi 451 kolom angka yang mencatat kecepatan goresan, tekanan pena, dan waktu jeda secara presisi dari sensor perangkat digital.
+    """)
 
-# Fitur Upload File
-uploaded_file = st.file_uploader("Unggah file CSV metrik tulisan tangan pasien", type=["csv"])
+    st.warning("""
+    **Belum memiliki dataset?**
+    Jika Anda tidak memiliki data sensor pasien namun ingin mencoba fungsionalitas aplikasi ini, Anda dapat mengunduh beberapa sampel data `.csv` yang telah kami sediakan melalui tautan berikut:
+    👉 **[Download Contoh Dataset (Google Drive)](https://drive.google.com/drive/u/0/folders/1JAaMTNAmPYrP7PNkmvt0cwAatb5NCyAJ)**
+    """)
 
-if uploaded_file is not None:
-    # Membaca data CSV yang diunggah
-    input_data = pd.read_csv(uploaded_file)
+    uploaded_file = st.file_uploader("Unggah file CSV metrik tulisan tangan pasien", type=["csv"])
+
+    if uploaded_file is not None:
+        input_data = pd.read_csv(uploaded_file)
+        st.write("**Preview Data Input:**")
+        st.dataframe(input_data.head(5))
+
+        if st.button("Jalankan Prediksi via CSV", type="primary"):
+            with st.spinner("Menganalisis pola tulisan tangan..."):
+                try:
+                    scaled_data = scaler.transform(input_data)
+                    predictions = model.predict(scaled_data)
+                    decoded_predictions = le.inverse_transform(predictions)
+                    
+                    st.subheader("📋 Hasil Analisis:")
+                    for i, result in enumerate(decoded_predictions):
+                        if result == 'P' or result == 1: 
+                            st.error(f"Data Pasien {i+1}: **Terindikasi Alzheimer** (Perlu pemeriksaan klinis lebih lanjut)")
+                        else:
+                            st.success(f"Data Pasien {i+1}: **Sehat** (Tidak terdeteksi anomali)")
+                except Exception as e:
+                    st.error(f"Terjadi kesalahan saat memproses data. Pastikan format dan jumlah kolom CSV sesuai (451 fitur). Error teknis: {e}")
+
+# ==========================================
+# TAB 2: INPUT PARAMETER MANUAL (INTERAKTIF)
+# ==========================================
+with tab2:
+    st.subheader("Simulasi Parameter Langsung")
+    st.write("""
+    Gunakan fitur ini jika Anda ingin menguji perubahan metrik secara spesifik tanpa perlu membuat file CSV. 
+    Karena model membutuhkan **451 parameter**, kami telah menyediakan tabel interaktif di bawah ini yang berisi nilai nol (0.0) sebagai *baseline*. Anda bisa mengklik sel (kotak) mana saja di dalam tabel untuk mengubah angkanya secara manual.
+    """)
+
+    # 1. Ambil 451 nama kolom dari scaler
+    nama_kolom = scaler.feature_names_in_
     
-    st.write("**Preview Data Input:**")
-    st.dataframe(input_data.head(5))
-
-    # Tombol Prediksi
-    if st.button("Jalankan Prediksi AI", type="primary"):
-        with st.spinner("Menganalisis pola tulisan tangan..."):
+    # 2. Buat DataFrame kosong dengan 1 baris berisi angka 0.0
+    df_manual = pd.DataFrame(np.zeros((1, len(nama_kolom))), columns=nama_kolom)
+    
+    # 3. Tampilkan Data Editor interaktif
+    st.caption("Klik angka 0.000 di bawah ini untuk mengubah nilainya. Anda bisa menggeser tabel ke kanan untuk melihat seluruh 451 kolom.")
+    edited_df = st.data_editor(df_manual, num_rows="fixed")
+    
+    if st.button("Jalankan Prediksi Simulasi", type="primary"):
+        with st.spinner("Menganalisis parameter manual..."):
             try:
-                # 1. Standarisasi data input menggunakan Scaler bawaan
-                scaled_data = scaler.transform(input_data)
+                # Proses data dari tabel yang baru saja diedit pengguna
+                scaled_manual = scaler.transform(edited_df)
+                pred_manual = model.predict(scaled_manual)
+                decoded_manual = le.inverse_transform(pred_manual)[0]
                 
-                # 2. Lakukan Prediksi
-                predictions = model.predict(scaled_data)
-                
-                # 3. Kembalikan kode prediksi ke label asli menggunakan Label Encoder
-                decoded_predictions = le.inverse_transform(predictions)
-                
-                st.subheader("📋 Hasil Analisis:")
-                
-                # Tampilkan hasil untuk setiap baris data
-                for i, result in enumerate(decoded_predictions):
-                    # Biasanya label di DARWIN adalah 'P' (Patient) dan 'H' (Healthy)
-                    if result == 'P' or result == 1: 
-                        st.error(f"Data Pasien {i+1}: **Terindikasi Alzheimer** (Perlu pemeriksaan klinis lebih lanjut)")
-                    else:
-                        st.success(f"Data Pasien {i+1}: **Sehat** (Tidak terdeteksi anomali)")
-                        
+                st.subheader("📋 Hasil Analisis Simulasi:")
+                if decoded_manual == 'P' or decoded_manual == 1:
+                    st.error("Berdasarkan parameter yang Anda masukkan: **Terindikasi Alzheimer** (Perlu pemeriksaan klinis lebih lanjut)")
+                else:
+                    st.success("Berdasarkan parameter yang Anda masukkan: **Sehat** (Tidak terdeteksi anomali)")
             except Exception as e:
-                st.error(f"Terjadi kesalahan saat memproses data. Pastikan format dan jumlah kolom CSV sesuai (451 fitur). Error teknis: {e}")
+                st.error(f"Terjadi kesalahan teknis: {e}")
